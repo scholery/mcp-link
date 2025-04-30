@@ -56,11 +56,16 @@ func NewToolHandler(method string, url string, extraHeaders map[string]string) f
 		params := request.Params.Arguments
 
 		// Create maps for different parameter types
+		headerParams := make(map[string]interface{})
 		pathParams := make(map[string]interface{})
 		queryParams := make(map[string]interface{})
 		bodyParams := make(map[string]interface{})
 
 		// Extract specific parameter groups
+		if headerParamsMap, ok := params["headers"].(map[string]interface{}); ok {
+			headerParams = headerParamsMap
+		}
+
 		if pathParamsMap, ok := params["pathNames"].(map[string]interface{}); ok {
 			pathParams = pathParamsMap
 		}
@@ -166,6 +171,20 @@ func NewToolHandler(method string, url string, extraHeaders map[string]string) f
 		}
 		for key, value := range extraHeaders {
 			req.Header.Set(key, value)
+		}
+
+		for key, value := range headerParams{
+			var strValue string
+			switch v := value.(type) {
+			case string:
+				strValue = v
+			case nil:
+				continue
+			default:
+				// Convert other types to string
+				strValue = fmt.Sprintf("%v", v)
+			}
+			req.Header.Set(key, strValue)
 		}
 
 		// Execute the request
