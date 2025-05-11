@@ -62,7 +62,7 @@ func NewToolHandler(method string, url string, extraHeaders map[string]string) f
 		bodyParams := make(map[string]interface{})
 
 		// Extract specific parameter groups
-		if headerParamsMap, ok := params["headers"].(map[string]interface{}); ok {
+		if headerParamsMap, ok := params["requestHeader"].(map[string]interface{}); ok {
 			headerParams = headerParamsMap
 		}
 
@@ -348,7 +348,7 @@ func NewMCPFromCustomParser(baseURL string, extraHeaders map[string]string, pars
 					prop["bearerFormat"] = param.BearerFormat
 				}
 			}
-			opts = append(opts, mcp.WithObject("headers", mcp.Description("request header for the tool"), mcp.Properties(securities)))
+			opts = append(opts, mcp.WithObject("requestHeader", mcp.Description("request header for the tool"), mcp.Properties(securities)))
 		}
 
 		// Create the tool and handler
