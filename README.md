@@ -98,3 +98,13 @@ These URLs allow any API with an OpenAPI specification to be immediately convert
 - **MCP Protocol OAuthflow**: Implement OAuth authentication flow support for MCP Protocol
 - **Resources Support**: Add capability to handle resource-based API interactions
 - **MIME Types**: Enhance support for various MIME types in API requests and responses
+
+## Build
+```bash
+# Build for Linux
+GOOS=linux GOARCH=amd64 go build -o mcp-link-linux-amd64 main.go
+# Build for Windows
+GOOS=windows GOARCH=amd64 go build -o mcp-link-windows-amd64.exe main.go
+# Build for MacOS
+GOOS=darwin GOARCH=amd64 go build -o mcp-link-darwin-amd64 main.go
+```

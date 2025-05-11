@@ -157,6 +157,7 @@ func NewSSEServer(opts ...SSEOption) *SSEServer {
 		servers:         map[string]*server.MCPServer{},
 		sseEndpoint:     "/sse",
 		messageEndpoint: "/message",
+		debugMode: true,
 	}
 
 	// Apply all options
@@ -393,7 +394,10 @@ func (s *SSEServer) handleMessage(w http.ResponseWriter, r *http.Request) {
 			if err := json.Unmarshal(respData, &respMap); err == nil {
 				if result, hasResult := respMap["result"]; hasResult && result != nil {
 					if method != "tools/list" {
-						s.logMessage("[MCP TOOL RESPONSE] Session %s: Method response", sessionID)
+						s.logMessage("[MCP TOOL RESPONSE] Session %s: Method response: %s", sessionID, string(respData))
+					}else if s.debugMode {
+						s.logMessage("[DEBUG][TOOL RESPONSE] Session %s tool response: %s", sessionID, string(respData))
+
 					}
 				} else if errObj, hasError := respMap["error"]; hasError && errObj != nil {
 					s.logMessage("[MCP TOOL RESPONSE] Session %s: Method responded with error", sessionID)

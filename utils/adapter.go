@@ -240,43 +240,45 @@ func NewMCPFromCustomParser(baseURL string, extraHeaders map[string]string, pars
 
 		for _, param := range api.Parameters {
 			if param.In == "query" {
-				query_props[param.Name] = param
-				query_props["type"] = param.Schema.Type
+				prop := map[string]interface{}{}
+				query_props[param.Name] = prop
+				prop["type"] = param.Schema.Type
 				if param.Schema.Enum != nil {
-					query_props["enum"] = param.Schema.Enum
+					prop["enum"] = param.Schema.Enum
 				}
 				if param.Schema.Format != "" {
-					query_props["format"] = param.Schema.Format
+					prop["format"] = param.Schema.Format
 				}
 				if param.Schema.Default != nil {
-					query_props["default"] = param.Schema.Default
+					prop["default"] = param.Schema.Default
 				}
 				if param.Schema.Description != "" {
-					query_props["description"] = param.Schema.Description
+					prop["description"] = param.Schema.Description
 				}
 				if param.Schema.Items != nil {
-					query_props["items"] = param.Schema.Items
+					prop["items"] = param.Schema.Items
 				}
 				if param.Schema.Properties != nil {
-					query_props["properties"] = param.Schema.Properties
+					prop["properties"] = param.Schema.Properties
 				}
 			} else if param.In == "path" {
-				path_props[param.Name] = param
-				path_props["type"] = param.Schema.Type
+				prop := map[string]interface{}{}
+				path_props[param.Name] = prop
+				prop["type"] = param.Schema.Type
 				if param.Schema.Enum != nil {
-					path_props["enum"] = param.Schema.Enum
+					prop["enum"] = param.Schema.Enum
 				}
 				if param.Schema.Format != "" {
-					path_props["format"] = param.Schema.Format
+					prop["format"] = param.Schema.Format
 				}
 				if param.Schema.Default != nil {
-					path_props["default"] = param.Schema.Default
+					prop["default"] = param.Schema.Default
 				}
 				if param.Schema.Description != "" {
-					path_props["description"] = param.Schema.Description
+					prop["description"] = param.Schema.Description
 				}
 				if param.Schema.Items != nil {
-					path_props["items"] = param.Schema.Items
+					prop["items"] = param.Schema.Items
 				}
 			}
 		}
@@ -294,30 +296,59 @@ func NewMCPFromCustomParser(baseURL string, extraHeaders map[string]string, pars
 			for _, mediaType := range api.RequestBody.Content {
 				if mediaType.Schema != nil {
 					for propName, propSchema := range mediaType.Schema.Properties {
-						props[propName] = propSchema
-						props["type"] = propSchema.Type
+						prop := map[string]interface{}{}
+						props[propName] = prop
+						prop["type"] = propSchema.Type
 						if propSchema.Enum != nil {
-							props["enum"] = propSchema.Enum
+							prop["enum"] = propSchema.Enum
 						}
 						if propSchema.Format != "" {
-							props["format"] = propSchema.Format
+							prop["format"] = propSchema.Format
 						}
 						if propSchema.Default != nil {
-							props["default"] = propSchema.Default
+							prop["default"] = propSchema.Default
 						}
 						if propSchema.Description != "" {
-							props["description"] = propSchema.Description
+							prop["description"] = propSchema.Description
 						}
 						if propSchema.Items != nil {
-							props["items"] = propSchema.Items
+							prop["items"] = propSchema.Items
 						}
 						if propSchema.Properties != nil {
-							props["properties"] = propSchema.Properties
+							prop["properties"] = propSchema.Properties
 						}
 					}
 				}
 			}
 			opts = append(opts, mcp.WithObject("requestBody", mcp.Description("request body for the tool"), mcp.Properties(props)))
+		}
+
+		// parse header
+		if len(api.Security) > 0 {
+			securities := map[string]interface{}{}
+			for name, param := range api.Security {
+				prop := map[string]interface{}{}
+				securities[name] = prop
+				if param.Name != "" {
+					prop["name"] = param.Name
+				}
+				if param.Type != "" {
+					prop["type"] = param.Type
+				}
+				if param.Scheme != "" {
+					prop["scheme"] = param.Scheme
+				}
+				if param.In != "" {
+					prop["in"] = param.In
+				}
+				if param.Description != "" {
+					prop["description"] = param.Description
+				}
+				if param.BearerFormat != "" {
+					prop["bearerFormat"] = param.BearerFormat
+				}
+			}
+			opts = append(opts, mcp.WithObject("headers", mcp.Description("request header for the tool"), mcp.Properties(securities)))
 		}
 
 		// Create the tool and handler

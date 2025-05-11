@@ -41,6 +41,7 @@ type APIEndpoint struct {
 	Parameters  []Parameter         `json:"parameters,omitempty"`
 	RequestBody *RequestBody        `json:"requestBody,omitempty"`
 	Responses   map[string]Response `json:"responses,omitempty"`
+	Security 	map[string]Security `json:"securitySchemes,omitempty"`
 }
 
 // Parameter represents an API parameter
@@ -82,9 +83,41 @@ type Schema struct {
 	Ref         string
 }
 
+type Component struct {
+	Schemas         map[string]Schema 		`json:"schemas,omitempty"`
+	Responses		map[string]Response 	`json:"responses,omitempty"`
+	Parameters		map[string]Parameter 	`json:"parameters,omitempty"`
+	// Examples		string `json:"examples,omitempty"`
+	RequestBodies	map[string]RequestBody 	`json:"requestBodies,omitempty"`
+	Headers			map[string]Header		`json:"headers,omitempty"`
+	SecuritySchemes	map[string]Security 	`json:"securitySchemes,omitempty"`
+	// Links			string `json:"links,omitempty"`
+	// Callbacks		string `json:"callbacks,omitempty"`
+}
+
+type Header struct{
+	Required    bool    `json:"required,omitempty"`
+	Description string  `json:"description,omitempty"`
+	Schema      *Schema `json:"schema,omitempty"`
+}
+
+type Security struct{
+	Type        		string            `json:"type,omitempty"`  			//"apiKey", "http", "oauth2", "openIdConnect"
+	Description 		string            `json:"description,omitempty"` 
+	Name     			string       	  `json:"name,omitempty"` 			//apiKey
+	In     				string       	  `json:"in,omitempty"` 			//apiKey
+	Scheme     			string       	  `json:"scheme,omitempty"`			//http
+	BearerFormat    	string       	  `json:"bearerFormat,omitempty"`	//http ("bearer")
+	// Flows        		[]interface{}     `json:"flows,omitempty"`			//oauth2
+	// OpenIdConnectUrl  	string 			  `json:"openIdConnectUrl,omitempty"`	//openIdConnect
+}
+
 // SimpleOpenAPIParser is a simple parser for OpenAPI specifications
 type SimpleOpenAPIParser struct {
 	document map[string]interface{}
+	security map[string]interface{}
+	component Component
+
 }
 
 // NewSimpleOpenAPIParser creates a new OpenAPI parser
@@ -174,6 +207,15 @@ func (p *SimpleOpenAPIParser) APIs() []APIEndpoint {
 	if !ok {
 		return endpoints
 	}
+	p.component = p.Components()
+	p.security = p.Security()
+
+	securities := map[string]Security{}
+	for name, _ := range p.security {
+		if sec,ok := p.component.SecuritySchemes[name]; ok{
+			securities[name] = sec
+		}
+	}
 
 	for path, pathItem := range paths {
 		pathItemObj, ok := pathItem.(map[string]interface{})
@@ -217,59 +259,13 @@ func (p *SimpleOpenAPIParser) APIs() []APIEndpoint {
 					if !ok {
 						continue
 					}
-
-					parameter := Parameter{}
-
-					if name, ok := paramObj["name"].(string); ok {
-						parameter.Name = name
-					}
-
-					if in, ok := paramObj["in"].(string); ok {
-						parameter.In = in
-					}
-
-					if required, ok := paramObj["required"].(bool); ok {
-						parameter.Required = required
-					}
-
-					if description, ok := paramObj["description"].(string); ok {
-						parameter.Description = description
-					}
-
-					if schemaObj, ok := paramObj["schema"].(map[string]interface{}); ok {
-						schema := p.parseSchema(schemaObj)
-						parameter.Schema = &schema
-					}
-
-					endpoint.Parameters = append(endpoint.Parameters, parameter)
+					endpoint.Parameters = append(endpoint.Parameters, p.parseParameter(paramObj))
 				}
 			}
 
 			// Parse request body
 			if requestBodyObj, ok := operationObj["requestBody"].(map[string]interface{}); ok {
-				requestBody := RequestBody{
-					Content: make(map[string]MediaType),
-				}
-
-				if required, ok := requestBodyObj["required"].(bool); ok {
-					requestBody.Required = required
-				}
-
-				if contentObj, ok := requestBodyObj["content"].(map[string]interface{}); ok {
-					for mediaTypeName, mediaTypeObj := range contentObj {
-						if mediaTypeMap, ok := mediaTypeObj.(map[string]interface{}); ok {
-							mediaType := MediaType{}
-
-							if schemaObj, ok := mediaTypeMap["schema"].(map[string]interface{}); ok {
-								schema := p.parseSchema(schemaObj)
-								mediaType.Schema = &schema
-							}
-
-							requestBody.Content[mediaTypeName] = mediaType
-						}
-					}
-				}
-
+				requestBody := p.parseRequestBody(requestBodyObj)
 				endpoint.RequestBody = &requestBody
 			}
 
@@ -277,33 +273,13 @@ func (p *SimpleOpenAPIParser) APIs() []APIEndpoint {
 			if responsesObj, ok := operationObj["responses"].(map[string]interface{}); ok {
 				for statusCode, responseObj := range responsesObj {
 					if responseMap, ok := responseObj.(map[string]interface{}); ok {
-						response := Response{
-							Content: make(map[string]MediaType),
-						}
-
-						if description, ok := responseMap["description"].(string); ok {
-							response.Description = description
-						}
-
-						if contentObj, ok := responseMap["content"].(map[string]interface{}); ok {
-							for mediaTypeName, mediaTypeObj := range contentObj {
-								if mediaTypeMap, ok := mediaTypeObj.(map[string]interface{}); ok {
-									mediaType := MediaType{}
-
-									if schemaObj, ok := mediaTypeMap["schema"].(map[string]interface{}); ok {
-										schema := p.parseSchema(schemaObj)
-										mediaType.Schema = &schema
-									}
-
-									response.Content[mediaTypeName] = mediaType
-								}
-							}
-						}
-
-						endpoint.Responses[statusCode] = response
+						endpoint.Responses[statusCode] = p.parseResponse(responseMap)
 					}
 				}
 			}
+
+			// Parse security,use global
+			endpoint.Security = securities
 
 			endpoints = append(endpoints, endpoint)
 		}
@@ -312,8 +288,234 @@ func (p *SimpleOpenAPIParser) APIs() []APIEndpoint {
 	return endpoints
 }
 
+func (p *SimpleOpenAPIParser) Security() map[string]interface{} {
+	var security map[string]interface{}
+	if securityObj, ok := p.document["security"].(map[string]interface{}); ok {
+		security = securityObj
+	}
+	return security
+}
+
+func (p *SimpleOpenAPIParser) Components() Component {
+	component := Component{
+		Schemas: make(map[string]Schema),
+		Responses: make(map[string]Response),
+		Parameters: make(map[string]Parameter),
+		RequestBodies: make(map[string]RequestBody),
+		Headers: make(map[string]Header),
+		SecuritySchemes: make(map[string]Security),
+	}
+
+	componentsObj, ok := p.document["components"].(map[string]interface{})
+	if !ok {
+		return component
+	}
+
+	if schemas, ok := componentsObj["schemas"].(map[string]interface{}); ok {
+		for name, schema := range schemas {
+			schemaObj, ok := schema.(map[string]interface{}) 
+			if !ok {
+				continue
+			}
+			component.Schemas[name] = p.parseSchema(schemaObj)
+		}
+	}
+	if responses, ok := componentsObj["responses"].(map[string]interface{}); ok {
+		for name, responseMap := range responses {
+			responseObj, ok := responseMap.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			component.Responses[name] = p.parseResponse(responseObj)
+		}
+	}
+	if parameters, ok := componentsObj["parameters"].(map[string]interface{}); ok {
+		for name, parameter := range parameters {
+			parameterObj, ok := parameter.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			component.Parameters[name] = p.parseParameter(parameterObj)
+		}
+	}
+	if requestBodies, ok := componentsObj["requestBodies"].(map[string]interface{}); ok {
+		for name, requestBodyData := range requestBodies {
+			requestBodyObj, ok := requestBodyData.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			component.RequestBodies[name] = p.parseRequestBody(requestBodyObj)
+		}
+	}
+	if headers, ok := componentsObj["headers"].(map[string]interface{}); ok {
+		for name, headerData := range headers {
+			headerObj, ok := headerData.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			header := Header{}
+			if required, ok := headerObj["required"].(bool); ok {
+				header.Required = required
+			}
+			if description, ok := headerObj["description"].(string); ok {
+				header.Description = description
+			}
+			if schemaObj, ok := headerObj["schema"].(map[string]interface{}); ok {
+				schema := p.parseSchema(schemaObj)
+				header.Schema = &schema
+			}
+			component.Headers[name] = header
+		}
+	}
+	if securitySchemes, ok := componentsObj["securitySchemes"].(map[string]interface{}); ok {
+		for name, securityScheme := range securitySchemes {
+			securitySchemeObj, ok := securityScheme.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			security := Security{}
+			if ty, ok := securitySchemeObj["type"].(string); ok {
+				security.Type = ty
+			}
+			if description, ok := securitySchemeObj["description"].(string); ok {
+				security.Description = description
+			}
+			if val, ok := securitySchemeObj["name"].(string); ok {
+				security.Name = val
+			}
+			if in, ok := securitySchemeObj["in"].(string); ok {
+				security.In = in
+			}
+			if scheme, ok := securitySchemeObj["scheme"].(string); ok {
+				security.Scheme = scheme
+			}
+			if bearerFormat, ok := securitySchemeObj["bearerFormat"].(string); ok {
+				security.BearerFormat = bearerFormat
+			}
+			component.SecuritySchemes[name] = security
+		}
+	}
+
+	return component
+}
+
+// parseSchemaRef parses a JSON schema object
+// ref:"#/components/schemas/TeamPerformanceQuery"
+func (p *SimpleOpenAPIParser) parseSchemaRef(ref string) (*Schema,error) {
+    // del #/components/
+    newStr := strings.TrimPrefix(ref, "#/components/")
+    // split by /
+    parts := strings.Split(newStr, "/")
+	if len(parts) < 2 || len(parts[0]) == 0{
+		return nil,fmt.Errorf("failed to parse ref: %s", ref)
+	}
+	var obj map[string]Schema
+	switch  parts[0]{
+		case "schemas":
+			obj = p.component.Schemas
+		// case "responses":
+		// 	obj = component.Responses
+		// case "parameters":
+		// 	obj = component.Parameters
+		// case "requestBodies":
+		// 	obj = component.RequestBodies
+		// case "headers":
+		// 	obj = component.Headers
+		// case "securitySchemes":
+		// 	obj = component.SecuritySchemes
+	}
+	subPart := parts[1]
+	if schema,ok := obj[subPart]; ok{
+		return &schema, nil
+	}
+	return nil, fmt.Errorf("failed to parse ref: %s", ref)
+}
+
+func (p *SimpleOpenAPIParser) parseResponse(responseMap map[string]interface{}) Response {
+	response := Response{
+		Content: make(map[string]MediaType),
+	}
+
+	if description, ok := responseMap["description"].(string); ok {
+		response.Description = description
+	}
+
+	if contentObj, ok := responseMap["content"].(map[string]interface{}); ok {
+		for mediaTypeName, mediaTypeObj := range contentObj {
+			if mediaTypeMap, ok := mediaTypeObj.(map[string]interface{}); ok {
+				mediaType := MediaType{}
+
+				if schemaObj, ok := mediaTypeMap["schema"].(map[string]interface{}); ok {
+					schema := p.parseSchema(schemaObj)
+					mediaType.Schema = &schema
+				}
+
+				response.Content[mediaTypeName] = mediaType
+			}
+		}
+	}
+	return response
+}
+
+func (p *SimpleOpenAPIParser) parseRequestBody(requestBodyObj map[string]interface{}) RequestBody {
+	requestBody := RequestBody{
+		Content: make(map[string]MediaType),
+	}
+
+	if required, ok := requestBodyObj["required"].(bool); ok {
+		requestBody.Required = required
+	}
+
+	if contentObj, ok := requestBodyObj["content"].(map[string]interface{}); ok {
+		for mediaTypeName, mediaTypeObj := range contentObj {
+			if mediaTypeMap, ok := mediaTypeObj.(map[string]interface{}); ok {
+				mediaType := MediaType{}
+
+				if schemaObj, ok := mediaTypeMap["schema"].(map[string]interface{}); ok {
+					schema := p.parseSchema(schemaObj)
+					mediaType.Schema = &schema
+				} 
+
+				requestBody.Content[mediaTypeName] = mediaType
+			}
+		}
+	}
+	return requestBody
+}
+
+func (p *SimpleOpenAPIParser) parseParameter(paramObj map[string]interface{}) Parameter {
+	parameter := Parameter{}
+
+	if name, ok := paramObj["name"].(string); ok {
+		parameter.Name = name
+	}
+
+	if in, ok := paramObj["in"].(string); ok {
+		parameter.In = in
+	}
+
+	if required, ok := paramObj["required"].(bool); ok {
+		parameter.Required = required
+	}
+
+	if description, ok := paramObj["description"].(string); ok {
+		parameter.Description = description
+	}
+
+	if schemaObj, ok := paramObj["schema"].(map[string]interface{}); ok {
+		schema := p.parseSchema(schemaObj)
+		parameter.Schema = &schema
+	}
+	return parameter
+}
 // parseSchema parses a JSON schema object
 func (p *SimpleOpenAPIParser) parseSchema(schemaObj map[string]interface{}) Schema {
+	if ref, ok := schemaObj["$ref"].(string); ok {
+		if schema,err := p.parseSchemaRef(ref); err == nil {
+			return *schema
+		}
+	}
+
 	schema := Schema{
 		Properties: make(map[string]Schema),
 	}

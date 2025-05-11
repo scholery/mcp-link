@@ -66,3 +66,21 @@ func Test_ParseYamlToJson(t *testing.T) {
 
 	fmt.Println(string(prettyJSON))
 }
+
+func Test_ParseRef(t *testing.T){
+	rawBytes, err := os.ReadFile("../hello.json")
+	if err != nil {
+		fmt.Printf("failed to load schema: %v", err)
+		return
+	}
+	parser, parseErr := ParseOpenAPIFromJSON(rawBytes)
+	if parseErr != nil {
+		fmt.Printf("failed to parse schema: %v", parseErr)
+		return
+	}
+	apis := parser.APIs()
+	fmt.Printf("apis: %v", apis)
+
+	NewMCPFromCustomParser("http://test/", nil, parser)
+}
+
