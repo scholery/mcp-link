@@ -157,7 +157,6 @@ func NewSSEServer(opts ...SSEOption) *SSEServer {
 		servers:         map[string]*server.MCPServer{},
 		sseEndpoint:     "/sse",
 		messageEndpoint: "/message",
-		debugMode: true,
 	}
 
 	// Apply all options
