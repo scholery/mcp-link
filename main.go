@@ -11,41 +11,43 @@ import (
 	"time"
 
 	"github.com/anyisalin/mcp-openapi-to-mcp-adapter/utils"
-	"github.com/urfave/cli/v2"
 )
 
 func main() {
-	app := &cli.App{
-		Name:  "mcp-link",
-		Usage: "Convert OpenAPI to MCP compatible endpoints",
-		Commands: []*cli.Command{
-			{
-				Name:  "serve",
-				Usage: "Start the MCP Link server",
-				Flags: []cli.Flag{
-					&cli.IntFlag{
-						Name:    "port",
-						Aliases: []string{"p"},
-						Value:   8080,
-						Usage:   "Port to listen on",
-					},
-					&cli.StringFlag{
-						Name:    "host",
-						Aliases: []string{"H"},
-						Value:   "localhost",
-						Usage:   "Host to listen on",
-					},
-				},
-				Action: func(c *cli.Context) error {
-					return runServer(c.String("host"), c.Int("port"))
-				},
-			},
-		},
-	}
+	// 本地运行时执行这段代码
+	runServer("0.0.0.0", 8089)
 
-	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
-	}
+	// app := &cli.App{
+	// 	Name:  "mcp-link",
+	// 	Usage: "Convert OpenAPI to MCP compatible endpoints",
+	// 	Commands: []*cli.Command{
+	// 		{
+	// 			Name:  "serve",
+	// 			Usage: "Start the MCP Link server",
+	// 			Flags: []cli.Flag{
+	// 				&cli.IntFlag{
+	// 					Name:    "port",
+	// 					Aliases: []string{"p"},
+	// 					Value:   8080,
+	// 					Usage:   "Port to listen on",
+	// 				},
+	// 				&cli.StringFlag{
+	// 					Name:    "host",
+	// 					Aliases: []string{"H"},
+	// 					Value:   "localhost",
+	// 					Usage:   "Host to listen on",
+	// 				},
+	// 			},
+	// 			Action: func(c *cli.Context) error {
+	// 				return runServer(c.String("host"), c.Int("port"))
+	// 			},
+	// 		},
+	// 	},
+	// }
+
+	// if err := app.Run(os.Args); err != nil {
+	// 	log.Fatal(err)
+	// }
 }
 
 func runServer(host string, port int) error {

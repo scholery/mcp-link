@@ -749,14 +749,24 @@ func (s *SSEServer) parseRequestParams(r *http.Request) RequestParams {
 		params.SchemaURL = query.Get("s")
 		params.BaseURL = query.Get("u")
 
-		h := query.Get("h")
-		if h != "" {
-			if err := json.Unmarshal([]byte(h), &params.Headers); err != nil {
-				params.Error = fmt.Errorf("failed to parse headers: %w", err)
-				return params
+		headers := query["h"]
+		for _, header := range headers {
+			var tmp = make(map[string]string)
+			if err := json.Unmarshal([]byte(header), &tmp); err != nil {
+				kv := strings.Split(header, ":")
+				if len(kv)==2 {
+					params.Headers[kv[0]] = kv[1]
+				} else {
+					params.Error = fmt.Errorf("failed to parse headers: %w", err)
+					return params
+				}
+			} else {
+				// batch copy from json
+				for key, val := range tmp {
+					params.Headers[key] = val
+				}
 			}
 		}
-
 		// Parse DSL filters from f parameter (can be multiple)
 		filterValues := query["f"]
 		for _, filterDSL := range filterValues {

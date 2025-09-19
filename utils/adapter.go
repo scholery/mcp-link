@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	neturl "net/url"
 	"strings"
@@ -187,6 +188,10 @@ func NewToolHandler(method string, url string, extraHeaders map[string]string) f
 			req.Header.Set(key, strValue)
 		}
 
+		log.Printf("===========================              request  start            ===========================\n")
+        log.Printf("%v \n", req)
+        log.Printf("===========================              request   end             ===========================\n")
+		
 		// Execute the request
 		client := &http.Client{}
 		resp, err := client.Do(req)

@@ -68,7 +68,7 @@ func Test_ParseYamlToJson(t *testing.T) {
 }
 
 func Test_ParseRef(t *testing.T){
-	rawBytes, err := os.ReadFile("../hello.json")
+	rawBytes, err := os.ReadFile("../ossm-test.json")
 	if err != nil {
 		fmt.Printf("failed to load schema: %v", err)
 		return
